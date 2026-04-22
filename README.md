@@ -22,6 +22,16 @@ Outputs:
 - `out/validator.json` — 5-check Red Team findings
 - `out/report.md` — aggregated research report
 
+## Vendored components
+
+| Package | Upstream | Commit |
+|---|---|---|
+| `paper2alpha` | https://github.com/VernonOY/paper2alpha | `69f7db8` |
+| `qtype` | https://github.com/VernonOY/qtype | `5277e43` |
+
+Vendored code is read-only. See [LICENSE-VENDORED.md](LICENSE-VENDORED.md) for upstream MIT licenses.
+To sync an upstream fix: re-copy the source tree and update the commit SHA in this table and in `LICENSE-VENDORED.md`.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Vendored components (paper2alpha, qtype)
