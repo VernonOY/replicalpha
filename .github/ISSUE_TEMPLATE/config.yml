@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & discussion
+    url: https://github.com/VernonOY/replicalpha/discussions
+    about: For "how do I...", "has anyone tried...", general chatter. Reserve issues for bugs and feature requests.
+  - name: Security disclosure
+    url: mailto:vernonoy@stanford.edu
+    about: Don't open a public issue for security vulnerabilities. Email instead.

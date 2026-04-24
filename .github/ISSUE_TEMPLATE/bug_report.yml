@@ -1,0 +1,72 @@
+name: Bug report
+description: Something in replicalpha doesn't work as expected.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. The more specific you can be, the faster I can fix it.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected to happen.
+      placeholder: "I ran `replicalpha run paper.pdf ...` and got ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: The exact command(s) you ran. Include sample input if relevant (mock card JSON, CSV fixture path, etc).
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Error output / traceback
+      description: Full stderr or traceback. Please paste raw text, not a screenshot.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "3.12.2"
+    validations:
+      required: true
+
+  - type: input
+    id: replicalpha-version
+    attributes:
+      label: replicalpha version
+      description: Output of `uv run replicalpha --version` (or which tag/commit you're on).
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: data-source
+    attributes:
+      label: Data source
+      options:
+        - Bundled sample CSV (tests/cases/sample_market_data.csv)
+        - Custom DataAdapter implementation
+        - Custom CSV with the bundled CSVAdapter
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Anything else?
+      description: Related issues, logs, screenshots, etc.
+    validations:
+      required: false

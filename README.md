@@ -1,5 +1,13 @@
 # replicalpha
 
+[English](README.md) · [简体中文](README.zh-CN.md)
+
+[![CI](https://github.com/VernonOY/replicalpha/actions/workflows/ci.yml/badge.svg)](https://github.com/VernonOY/replicalpha/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)](https://www.python.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Coverage](https://img.shields.io/badge/coverage-84%25-brightgreen)](#quality)
+[![Release](https://img.shields.io/github/v/release/VernonOY/replicalpha)](https://github.com/VernonOY/replicalpha/releases)
+
 > Research-reproduction Agent: PDF → factor code → backtest → Red Team Validator → reproducibility score.
 
 replicalpha takes a quant research PDF and produces a complete reproduction
@@ -9,15 +17,23 @@ reproducibility score.
 
 ## Pipeline
 
-```
-PDF ─▶ paper2alpha (PyMuPDF + LLM JSON mode)
-       └─▶ ResearchCard
-           └─▶ DSL interpreter (+ LLM fallback) → Python factor code
-               └─▶ qtype static check (look-ahead / future-function lint)
-                   └─▶ pandas quintile IC backtest
-                       └─▶ Red Team Validator (5 fixed checks)
-                           └─▶ reproducibility scorer
-                               └─▶ markdown report
+```mermaid
+flowchart LR
+    PDF[📄 Paper PDF] --> EXT[paper2alpha<br/>PyMuPDF + LLM]
+    EXT --> RC[ResearchCard<br/>JSON schema]
+    RC --> CG[DSL interpreter<br/>+ LLM fallback]
+    CG --> QT[qtype lint<br/>look-ahead check]
+    QT --> BT[pandas backtest<br/>quintile IC]
+    BT --> RT[Red Team<br/>5 checks]
+    RT --> SC[Reproducibility<br/>score]
+    SC --> MD[📝 report.md]
+
+    classDef in fill:#e3f2fd,stroke:#1976d2,color:#0d47a1
+    classDef core fill:#fff3e0,stroke:#f57c00,color:#e65100
+    classDef out fill:#e8f5e9,stroke:#388e3c,color:#1b5e20
+    class PDF in
+    class EXT,RC,CG,QT,BT,RT,SC core
+    class MD out
 ```
 
 ## Quick start
@@ -63,13 +79,31 @@ uv run replicalpha run tests/cases/demo.pdf \
     --extractor-mock /tmp/card.json
 ```
 
+Expected terminal output:
+
+```text
+replicalpha run — demo.pdf
+
+✓ run r-1a2b3c4d finished
+  output: ./demo-out
+  codegen (dsl) ✓
+  backtest: IC 0.0123  cumret +2.45%  maxDD 4.21%  Sharpe 0.87
+  reproducibility: 0.42  — weak reproduction: claimed IC = 0.0450,
+                          reproduced = 0.0123 (72.7% deviation).
+  red team findings: 2 warning, 1 critical
+```
+
+See [examples/reproduce_demo.md](examples/reproduce_demo.md) for the full walkthrough.
+
 ## Red Team checks (v0.1)
 
-1. **overfitting_hint** — non-round lookback values suggest tuning
-2. **small_cap_exposure** — held-leg median market cap < 0.5× universe median
-3. **data_leakage** — generated code fails qtype (look-ahead / future function)
-4. **sample_concentration** — single year > 50% of cumulative IC
-5. **factor_redundancy** — paper declares multiple factors with near-identical formulas
+| # | Check | Fires when |
+|---|---|---|
+| 1 | `overfitting_hint` | lookback is a non-round value (suggests tuning) |
+| 2 | `small_cap_exposure` | held-leg median market cap < 0.5× universe median |
+| 3 | `data_leakage` | generated code fails qtype (look-ahead / future function) |
+| 4 | `sample_concentration` | single year contributes > 50% of cumulative IC |
+| 5 | `factor_redundancy` | paper declares multiple factors with near-identical formulas |
 
 ## HTTP server
 
@@ -109,12 +143,23 @@ adapter's contract is 3 methods: `get_price(field, start, end, universe)`,
 
 ## Vendored components
 
-| Component | Source | Version |
+| Component | Source | Purpose |
 |---|---|---|
-| paper2alpha | [VernonOY/paper2alpha](https://github.com/VernonOY/paper2alpha) | see LICENSE-VENDORED.md |
-| qtype | [VernonOY/qtype](https://github.com/VernonOY/qtype) | see LICENSE-VENDORED.md |
+| paper2alpha | [VernonOY/paper2alpha](https://github.com/VernonOY/paper2alpha) | PDF → `ResearchCard` extraction |
+| qtype | [VernonOY/qtype](https://github.com/VernonOY/qtype) | static lint for look-ahead / future-function bugs |
+
+Licenses preserved verbatim in [LICENSE-VENDORED.md](LICENSE-VENDORED.md).
+
+## Quality
+
+- **52 tests** (unit + end-to-end subprocess) · **84% coverage** · CI on 3.11 + 3.12
+- `ruff check` · `ruff format --check` · `mypy --strict` all green
+- See [tests/](tests/) — `unit/` for fast per-module tests, `e2e/` for full-pipeline subprocess tests
+
+## Support
+
+Bug reports, questions, feedback — open a [GitHub Issue](https://github.com/VernonOY/replicalpha/issues) or start a [Discussion](https://github.com/VernonOY/replicalpha/discussions). See [SUPPORT.md](SUPPORT.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Vendored components (paper2alpha, qtype) retain
-upstream licenses; see [LICENSE-VENDORED.md](LICENSE-VENDORED.md).
+MIT — see [LICENSE](LICENSE). Vendored components retain upstream licenses.

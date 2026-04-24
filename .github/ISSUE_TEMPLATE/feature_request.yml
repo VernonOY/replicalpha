@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest an idea for replicalpha.
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem?
+      description: What are you trying to do that replicalpha currently can't do well?
+      placeholder: "When I try to ..., I have to ... which is awkward because ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you like this to work? A rough sketch is fine — design discussion is welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other ways you've thought about solving this.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: Which layer would this change touch?
+      options:
+        - CLI (flags, subcommands)
+        - Core pipeline (codegen / backtest / validator / scorer)
+        - Data adapter / data formats
+        - HTTP server
+        - Documentation / examples
+        - Not sure
+    validations:
+      required: true
