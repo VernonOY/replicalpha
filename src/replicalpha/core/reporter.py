@@ -26,12 +26,7 @@ def _paper_section(card: ResearchCard) -> str:
     factors_md = "\n".join(
         f"- **{f.name}** ({f.chinese_name}) — formula: `{f.formula}`" for f in card.factors
     )
-    return (
-        "## Paper\n\n"
-        f"- **Source**: {card.source}\n"
-        "- **Factors claimed**:\n\n"
-        f"{factors_md}"
-    )
+    return f"## Paper\n\n- **Source**: {card.source}\n- **Factors claimed**:\n\n{factors_md}"
 
 
 def _codegen_section(report: PipelineReport) -> str:

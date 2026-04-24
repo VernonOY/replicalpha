@@ -1,0 +1,26 @@
+{
+  "source": "Study of the Momentum Effect and the Reversal Effect on the Chinese Stock Market",
+  "factors": [
+    {
+      "name": "reversal_effect",
+      "chinese_name": "逆转效应",
+      "definition": "The tendency for stocks that have performed poorly in the past to outperform in the future after a certain period.",
+      "formula": "-pct_change(close, 120)",
+      "data_fields": ["close"],
+      "params": {"lookback": 120},
+      "universe": "Chinese A-shares",
+      "reported_metrics": {
+        "ic_mean": 0.01309,
+        "icir": null,
+        "backtest_period": "April 2010 to February 2016",
+        "rebalance_freq": null
+      }
+    }
+  ],
+  "methodology": "Based on the BSV model and empirical testing of momentum and reversal strategies.",
+  "data_source": "Wind database",
+  "limitations": [
+    "Short trading history relative to other markets.",
+    "Active trading environment introduced in 2010 may skew results."
+  ]
+}

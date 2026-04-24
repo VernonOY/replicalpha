@@ -14,13 +14,57 @@ replicalpha 把一份量化研报 PDF 一条命令跑成完整的复现包 —�
 论文元数据、可执行的 Python 因子代码、回测结果、自动化红队发现、
 以及一句人话的可复现性得分。
 
-## 实际运行效果
+## 实际运行效果 —— 真实研报 + 真实 A 股数据
 
-一条命令,内置合成 PDF + CSV,不需要 API key:
+复现 **Zeng & Liu (2016)《中国股市动量效应与反转效应研究》**,股票池 CSI 300 前 30 只,Tushare Pro 日频数据,2022-01 至 2024-12:
 
-![replicalpha demo run](docs/images/demo-terminal.svg)
+![replicalpha run — real A-share demo](docs/images/real-demo/terminal.svg)
 
-完整生成的研报在 [docs/images/demo-report.md](docs/images/demo-report.md) —— 因子代码、回测统计、红队发现、可复现性结论,全部从 [`tests/cases/demo.pdf`](tests/cases/demo.pdf) + [`tests/cases/sample_market_data.csv`](tests/cases/sample_market_data.csv) 产出。
+### 核心结论:论文声称的反转效应在新样本上**完全失效**
+
+| | 论文声称 (2010-2016, 554 只) | 本次复现 (2022-2024, 沪深 300 前 30) |
+|---|---|---|
+| 6 月反转因子 IC | **+0.013** | **−0.022** |
+| 符号 | 正向反转 | **符号反转 → 变成动量** |
+| 可复现性得分 | — | **0.00**(弱;符号不匹配) |
+
+红队审查同时触发 1 条 warning(单年贡献集中)。这正是 replicalpha 要做的事 —— *把"旧文献因子在新时段/新股池里 sign flip 了"这件事明明白白摆出来。*
+
+### 配图
+
+| 累计多空收益 | 滚动 IC | 回撤 |
+|---|---|---|
+| ![cumret](docs/images/real-demo/cumret.png) | ![ic](docs/images/real-demo/ic_series.png) | ![dd](docs/images/real-demo/drawdown.png) |
+
+完整生成研报: [docs/images/real-demo/report.md](docs/images/real-demo/report.md)。
+提取(并手动打磨)出的 ResearchCard: [docs/images/real-demo/research_card.json](docs/images/real-demo/research_card.json)。
+
+### 自己复现这个 demo
+
+```bash
+uv sync --extra demo                        # 装 tushare + matplotlib
+export TUSHARE_TOKEN=... OPENAI_API_KEY=...
+uv run python scripts/generate_real_demo.py  # 会自动下载论文 PDF
+```
+
+第一次跑会从 Tushare 拉 4 年 × 30 只(约 1 分钟)+ 一次 OpenAI 调用提取 ResearchCard(约 10 秒)。
+之后都从本地 cache 读,几秒出图。
+
+### 用你自己的 PDF + 自己的数据
+
+```bash
+uv run replicalpha run your-paper.pdf --data your-csv.csv \
+    --out ./out --start 2022-01-03 --end 2024-12-31
+```
+
+详见下方 CLI 说明和 DataAdapter Protocol。
+
+<details>
+<summary><b>合成数据冒烟测试</b>(不需要 API key,最快通路)</summary>
+
+CI 用的 2 秒冒烟测试见 [docs/images/demo-terminal.svg](docs/images/demo-terminal.svg) 和 [docs/images/demo-report.md](docs/images/demo-report.md)。
+
+</details>
 
 ## 流水线
 

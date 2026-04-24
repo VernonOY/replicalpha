@@ -34,6 +34,12 @@ replicalpha = "replicalpha.cli.main:cli"
 Homepage = "https://github.com/VernonOY/replicalpha"
 Issues = "https://github.com/VernonOY/replicalpha/issues"
 
+[project.optional-dependencies]
+demo = [
+    "tushare>=1.4",
+    "matplotlib>=3.8",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
@@ -67,7 +73,7 @@ strict = true
 exclude = ["src/replicalpha/vendored/"]
 
 [[tool.mypy.overrides]]
-module = ["fitz", "openai.*"]
+module = ["fitz", "openai.*", "tushare", "matplotlib.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
@@ -76,7 +82,11 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 source = ["src/replicalpha"]
-omit = ["src/replicalpha/vendored/*"]
+omit = [
+    "src/replicalpha/vendored/*",
+    # Optional real-data extras — exercised by scripts/generate_real_demo.py, not unit tests
+    "src/replicalpha/data_sources/*",
+]
 branch = true
 
 [tool.coverage.report]

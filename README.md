@@ -15,13 +15,57 @@ bundle in one command — structured paper metadata, executable Python factor
 code, backtest results, automated Red Team findings, and a plain-English
 reproducibility score.
 
-## Live demo
+## Live demo — real research paper on real A-share data
 
-One command, bundled synthetic PDF + CSV, no API key:
+Reproducing **Zeng & Liu (2016) "Momentum and Reversal Effects on the Chinese Stock Market"** on CSI 300 top-30 with Tushare Pro daily data, 2022-01 to 2024-12:
 
-![replicalpha demo run](docs/images/demo-terminal.svg)
+![replicalpha run — real A-share demo](docs/images/real-demo/terminal.svg)
 
-The full generated research report is in [docs/images/demo-report.md](docs/images/demo-report.md) — factor code, backtest stats, Red Team findings, and the reproducibility verdict, all produced from [`tests/cases/demo.pdf`](tests/cases/demo.pdf) + [`tests/cases/sample_market_data.csv`](tests/cases/sample_market_data.csv).
+### Headline finding: the paper's claimed reversal effect does **not** reproduce
+
+| | Paper claim (2010-2016, 554 stocks) | Our reproduction (2022-2024, CSI 300 top 30) |
+|---|---|---|
+| 6-month reversal IC | **+0.013** | **−0.022** |
+| Sign | positive reversal | **sign-flipped → momentum** |
+| Reproducibility score | — | **0.00** (weak; sign mismatch) |
+
+The Red Team validator also fires 1 warning (sample concentration). This is exactly the kind of finding replicalpha is built to surface — *a published A-share factor whose sign flipped on a later period and tighter universe.*
+
+### Charts
+
+| Cumulative long-short return | Rolling IC | Drawdown |
+|---|---|---|
+| ![cumret](docs/images/real-demo/cumret.png) | ![ic](docs/images/real-demo/ic_series.png) | ![dd](docs/images/real-demo/drawdown.png) |
+
+Full generated research report: [docs/images/real-demo/report.md](docs/images/real-demo/report.md).
+The extracted (and manually polished) ResearchCard: [docs/images/real-demo/research_card.json](docs/images/real-demo/research_card.json).
+
+### Reproducing the demo yourself
+
+```bash
+uv sync --extra demo                        # installs tushare + matplotlib
+export TUSHARE_TOKEN=... OPENAI_API_KEY=...
+uv run python scripts/generate_real_demo.py  # auto-downloads the paper PDF
+```
+
+First run pulls ~4 years × 30 tickers from Tushare (~1 min) and calls OpenAI once to extract the ResearchCard (~10s).
+Subsequent runs use on-disk caches — no API calls, regenerates charts in seconds.
+
+### Quickstart on your own PDF + your own data
+
+```bash
+uv run replicalpha run your-paper.pdf --data your-csv.csv \
+    --out ./out --start 2022-01-03 --end 2024-12-31
+```
+
+See below for the CLI and DataAdapter Protocol.
+
+<details>
+<summary><b>Synthetic-data wiring test</b> (no API key, fastest path)</summary>
+
+For a 2-second smoke test on bundled synthetic data, see [docs/images/demo-terminal.svg](docs/images/demo-terminal.svg) and [docs/images/demo-report.md](docs/images/demo-report.md). This is what CI uses.
+
+</details>
 
 ## Pipeline
 
