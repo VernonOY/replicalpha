@@ -173,6 +173,7 @@ def run_pipeline(
     completed.append("score")
 
     # ── Stage 6: report ───────────────────────────────────────────────────────
+    completed.append("report")
     report = PipelineReport(
         run_id=run_id,
         paper_path=str(pdf_path),
@@ -185,18 +186,6 @@ def run_pipeline(
 
     md_text = render_report(card=card, report=report)
     (out_dir / "report.md").write_text(md_text, encoding="utf-8")
-
-    # Write final completed stages (now including "report")
-    completed.append("report")
-    report = PipelineReport(
-        run_id=run_id,
-        paper_path=str(pdf_path),
-        completed_stages=completed,
-        codegen=codegen_result,
-        backtest=backtest_result,
-        validator_findings=findings,
-        reproducibility=repro_score,
-    )
 
     pipeline_path = out_dir / "pipeline_report.json"
     pipeline_path.write_text(report.to_json(), encoding="utf-8")

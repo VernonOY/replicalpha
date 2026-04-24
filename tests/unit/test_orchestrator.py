@@ -69,6 +69,8 @@ def test_pipeline_writes_all_outputs(tmp_path: Path, demo_card_json: str) -> Non
     assert (tmp_path / "backtest.json").exists()
     assert (tmp_path / "validator.json").exists()
     assert (tmp_path / "report.md").exists()
+    assert (tmp_path / "reproducibility.json").exists()
+    assert (tmp_path / "pipeline_report.json").exists()
 
 
 def test_pipeline_all_stages_complete(tmp_path: Path, demo_card_json: str) -> None:
