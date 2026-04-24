@@ -96,6 +96,8 @@ def _emit(node: ast.AST) -> str:
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
         if node.func.id not in _WHITELIST_FUNCS:
             raise _UnsupportedDSLError(f"unsupported function {node.func.id!r}")
+        if node.keywords:
+            raise _UnsupportedDSLError(f"keyword args not supported in DSL: {node.func.id!r}")
         args = [_emit(a) for a in node.args]
         return f"_{node.func.id}({', '.join(args)})"
     raise _UnsupportedDSLError(f"unsupported node {type(node).__name__}")

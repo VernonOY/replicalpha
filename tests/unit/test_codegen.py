@@ -61,12 +61,13 @@ def test_stub_method_when_llm_emits_qtype_dirty_code() -> None:
     from unittest.mock import MagicMock
 
     mock_llm = MagicMock()
-    # LLM emits shift(-1) — QT001 will flag this
+    # LLM emits shift(-1) — QT001 flags this as error severity → stub
     mock_llm.complete_json.return_value = (
         '{"code": "import pandas as pd\\n\\n'
         "def compute(adapter, as_of, universe=''):\\n"
-        '    px = adapter.get_price(\\"close\\", as_of, as_of, universe)\\n'
-        "    return {t: v[0] for t, v in px.items() if len(v) > 0}\\n"
+        "    px = adapter.get_price('close', as_of, as_of, universe)\\n"
+        "    df = pd.DataFrame(px)\\n"
+        "    return dict(df.shift(-1).iloc[-1])\\n"
         '", "imports": []}'
     )
     r = generate_factor_code(
@@ -75,8 +76,9 @@ def test_stub_method_when_llm_emits_qtype_dirty_code() -> None:
         params={},
         llm_client=mock_llm,
     )
-    # LLM code is clean → accepted as LLM
-    assert r.method == "llm"
+    # QT001 fires (shift(-1) is lookahead) → qtype_passed=False → method == "stub"
+    assert r.method == "stub"
+    assert "NotImplementedError" in r.source_code
 
 
 def test_llm_output_invalid_python_falls_to_stub() -> None:
