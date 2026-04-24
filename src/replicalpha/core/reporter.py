@@ -26,16 +26,12 @@ def _paper_section(card: ResearchCard) -> str:
     factors_md = "\n".join(
         f"- **{f.name}** ({f.chinese_name}) — formula: `{f.formula}`" for f in card.factors
     )
-    return textwrap.dedent(
-        f"""\
-        ## Paper
-
-        - **Source**: {card.source}
-        - **Factors claimed**:
-
-        {factors_md}
-        """
-    ).rstrip()
+    return (
+        "## Paper\n\n"
+        f"- **Source**: {card.source}\n"
+        "- **Factors claimed**:\n\n"
+        f"{factors_md}"
+    )
 
 
 def _codegen_section(report: PipelineReport) -> str:
@@ -44,17 +40,13 @@ def _codegen_section(report: PipelineReport) -> str:
     cg = report.codegen
     status = "✅ qtype clean" if cg.qtype_passed else "⚠️ qtype violations present"
     note = f"\n\n*note*: {cg.note}" if cg.note else ""
-    return textwrap.dedent(
-        f"""\
-        ## Factor Code
-
-        Generated via **{cg.method}** ({status}).{note}
-
-        ```python
-        {cg.source_code.rstrip()}
-        ```
-        """
-    ).rstrip()
+    return (
+        "## Factor Code\n\n"
+        f"Generated via **{cg.method}** ({status}).{note}\n\n"
+        "```python\n"
+        f"{cg.source_code.rstrip()}\n"
+        "```"
+    )
 
 
 def _backtest_section(report: PipelineReport) -> str:

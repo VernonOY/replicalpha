@@ -14,6 +14,14 @@ replicalpha 把一份量化研报 PDF 一条命令跑成完整的复现包 —�
 论文元数据、可执行的 Python 因子代码、回测结果、自动化红队发现、
 以及一句人话的可复现性得分。
 
+## 实际运行效果
+
+一条命令,内置合成 PDF + CSV,不需要 API key:
+
+![replicalpha demo run](docs/images/demo-terminal.svg)
+
+完整生成的研报在 [docs/images/demo-report.md](docs/images/demo-report.md) —— 因子代码、回测统计、红队发现、可复现性结论,全部从 [`tests/cases/demo.pdf`](tests/cases/demo.pdf) + [`tests/cases/sample_market_data.csv`](tests/cases/sample_market_data.csv) 产出。
+
 ## 流水线
 
 ```mermaid

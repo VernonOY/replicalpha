@@ -15,6 +15,14 @@ bundle in one command — structured paper metadata, executable Python factor
 code, backtest results, automated Red Team findings, and a plain-English
 reproducibility score.
 
+## Live demo
+
+One command, bundled synthetic PDF + CSV, no API key:
+
+![replicalpha demo run](docs/images/demo-terminal.svg)
+
+The full generated research report is in [docs/images/demo-report.md](docs/images/demo-report.md) — factor code, backtest stats, Red Team findings, and the reproducibility verdict, all produced from [`tests/cases/demo.pdf`](tests/cases/demo.pdf) + [`tests/cases/sample_market_data.csv`](tests/cases/sample_market_data.csv).
+
 ## Pipeline
 
 ```mermaid
