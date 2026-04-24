@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import textwrap
+import typing
 
-from replicalpha.core.models import PipelineReport
+from replicalpha.core.models import PipelineReport, PipelineStage
 from replicalpha.vendored.paper2alpha.core.models import ResearchCard
+
+_ALL_STAGES: frozenset[str] = frozenset(typing.get_args(PipelineStage))
 
 
 def render_report(*, card: ResearchCard, report: PipelineReport) -> str:
@@ -106,7 +109,7 @@ def _reproducibility_section(report: PipelineReport) -> str:
 
 def _footer(report: PipelineReport) -> str:
     completed = ", ".join(report.completed_stages)
-    status = "complete" if len(report.completed_stages) == 6 else "partial"
+    status = "complete" if set(report.completed_stages) == _ALL_STAGES else "partial"
     return textwrap.dedent(
         f"""\
         ---
