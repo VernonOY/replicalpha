@@ -72,13 +72,13 @@ def run(
         raise click.ClickException(f"bad date format, expected YYYY-MM-DD: {exc}") from exc
 
     adapter = CSVAdapter(data_csv)
+    api_key = os.environ.get("OPENAI_API_KEY")
 
     extractor: LLMClient
     if extractor_mock is not None:
         payload = extractor_mock.read_text(encoding="utf-8")
         extractor = MockClient({"": payload}, match="contains")
     else:
-        api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             raise click.ClickException(
                 "no extractor available: set OPENAI_API_KEY or pass --extractor-mock"
@@ -87,7 +87,6 @@ def run(
 
     codegen: LLMClient | None = None
     if codegen_llm:
-        api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             raise click.ClickException("--codegen-llm requires OPENAI_API_KEY env var")
         codegen = OpenAIClient(api_key=api_key)

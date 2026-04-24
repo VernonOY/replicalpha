@@ -91,3 +91,64 @@ def test_run_missing_data_csv_clean_error(tmp_path: Path) -> None:
     )
     assert result.exit_code != 0
     assert "Traceback" not in result.output
+
+
+def test_run_bad_date_format_clean_error(tmp_path: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "run",
+            str(FIX_ROOT / "demo.pdf"),
+            "--out",
+            str(tmp_path / "out"),
+            "--data",
+            str(FIX_ROOT / "sample_market_data.csv"),
+            "--start",
+            "20220301",  # missing hyphens
+        ],
+    )
+    assert result.exit_code != 0
+    assert "Traceback" not in result.output
+
+
+def test_codegen_llm_requires_api_key(tmp_path: Path) -> None:
+    import json
+
+    mock_card = json.dumps(
+        {
+            "source": "demo",
+            "factors": [
+                {
+                    "name": "ma20",
+                    "chinese_name": "20日均线",
+                    "definition": "d",
+                    "formula": "rolling_mean(close, 20)",
+                    "data_fields": ["close"],
+                    "params": {"lookback": 20},
+                    "universe": "全A",
+                    "reported_metrics": {"ic_mean": 0.045, "backtest_period": "2022~2024"},
+                }
+            ],
+        }
+    )
+    mock_path = tmp_path / "card.json"
+    mock_path.write_text(mock_card, encoding="utf-8")
+
+    runner = CliRunner(env={"OPENAI_API_KEY": ""})
+    result = runner.invoke(
+        cli,
+        [
+            "run",
+            str(FIX_ROOT / "demo.pdf"),
+            "--out",
+            str(tmp_path / "out"),
+            "--data",
+            str(FIX_ROOT / "sample_market_data.csv"),
+            "--extractor-mock",
+            str(mock_path),
+            "--codegen-llm",
+        ],
+    )
+    assert result.exit_code != 0
+    assert "Traceback" not in result.output
