@@ -14,6 +14,58 @@ replicalpha 把一份量化研报 PDF 一条命令跑成完整的复现包 —�
 论文元数据、可执行的 Python 因子代码、回测结果、自动化红队发现、
 以及一句人话的可复现性得分。
 
+![replicalpha — 你读过的每一篇量化研报的时间线,以及哪些今天还能用](docs/images/screenshots/07-hero.png)
+
+## 产品形态
+
+每一篇你读过的量化研报,都是时间线上的一个节点,带一个一句话判决:**这个因子今天还成立吗?**
+
+### 📈 Timeline · 所有论文 · 所有结论 · 一目了然
+
+![时间线](docs/images/screenshots/01-timeline.png)
+
+多 lane 时间线,按 reproducibility verdict 染色。Lane 按因子家族分(动量 / 反转 / 价值 / 质量 / 波动率 / 流动性 / 其他)。可按结论 / 股票池 / 家族过滤。悬停查看 mini card 详情。
+
+### 🎯 Verdict · 杀手页
+
+![单篇判决](docs/images/screenshots/08-verdict.png)
+
+每篇论文一个一句人话的结论 + score 圆环 + paper claim vs reproduction 并排对照 + cumret 曲线。一键 "Open in IDE" 进入工作区调试生成的因子代码。↑↓ 键在时间线上前后切换论文。
+
+### 💼 Portfolio · 用复现成功的因子做纸面交易
+
+![组合](docs/images/screenshots/06-portfolio.png)
+
+日级 mark 的 equity 曲线 · CSI 300 基准线叠加 · 独立的回撤面板 · 持仓表。上图模拟 252 交易日,策略 +27% vs 基准 −0.14%。一键导出再平衡委托到 IBKR / Tiger / 富途 CSV。
+
+### 🔭 Monitor · 实时 IC 衰减告警
+
+![监控](docs/images/screenshots/05-monitor.png)
+
+把任何 reproduced 因子加入 watch list。30d IC 滚动均值跌破阈值(衰减 / 符号翻转 / 样本集中度)立刻告警。Sparkline 同时画 raw IC + 7-pt MA + 零基线。
+
+### 🤖 Agent · 从 arxiv / SSRN / Scholar 找论文
+
+![代理搜索](docs/images/screenshots/02-agent-search.png)
+
+没有 PDF 也行 —— 用自然语言描述方向:*「最近 CSI 500 上的动量因子」 / 「价值异象的发表后衰减」*,Agent 排序候选,你挑要复现哪一篇。
+
+### 📚 Library · 你的研究档案,可查询
+
+![库](docs/images/screenshots/04-library.png)
+
+这个 snapshot 里 26 篇。按 claim IC / repro IC / score / family / 年份排序、过滤、多选、批量 re-run、批量导出。
+
+### 🛠️ IDE workspace · Cursor for quant research
+
+![工作区](docs/images/screenshots/03-ide.png)
+
+每个 reproduction 都是一个完整的可编辑工作区:PDF + Claude 生成的 `factor.py` / `backtest.py` / `redteam.py`、Terminal、以及上下文感知的 agent —— 它知道 verdict、知道数据、知道代码。Quick-action 按 verdict 动态生成("为什么 verdict 不绿?"/"修复 sign-flip"/"加 1/99 winsorization"/"audit 前视偏差")。
+
+---
+
+中英文双语 · 默认深色 · 全键盘(`⌘K` 一键到达任何页面)。
+
 ## 实际运行效果 —— 真实研报 + 真实 A 股数据
 
 复现 **Zeng & Liu (2016)《中国股市动量效应与反转效应研究》**,股票池 CSI 300 前 30 只,Tushare Pro 日频数据,2022-01 至 2024-12:

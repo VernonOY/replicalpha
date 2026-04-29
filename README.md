@@ -15,6 +15,58 @@ bundle in one command — structured paper metadata, executable Python factor
 code, backtest results, automated Red Team findings, and a plain-English
 reproducibility score.
 
+![replicalpha — A timeline of every quant paper you've read, and which ones still work](docs/images/screenshots/07-hero.png)
+
+## The product
+
+A personal timeline for every quant paper you've ever read, with one verdict per paper: **does the factor still work?**
+
+### 📈 Timeline · every paper, every verdict, in one place
+
+![Timeline](docs/images/screenshots/01-timeline.png)
+
+Multi-lane chronological view, color-coded by reproducibility verdict. Lanes by factor family (momentum / reversal / value / quality / volatility / liquidity / other). Filter by verdict, universe, or family. Hover for paper details.
+
+### 🎯 Verdict · the killer page
+
+![Verdict page](docs/images/screenshots/08-verdict.png)
+
+For each paper: a one-sentence natural-language verdict, a score gauge, paper-claim vs reproduction side-by-side, cumret chart. One-click "Open in IDE" to inspect or fix the generated factor code. Up/down arrow keys to scrub through your timeline.
+
+### 💼 Portfolio · paper-trade your reproduced factors
+
+![Portfolio](docs/images/screenshots/06-portfolio.png)
+
+Daily-mark equity curve with CSI 300 benchmark overlay, drawdown panel, allocations table. Strategy +27% vs benchmark −0.14% on the simulated 252-session window above. Export rebalance orders to IBKR / Tiger / Futu CSV.
+
+### 🔭 Monitor · live IC decay alerts
+
+![Monitor](docs/images/screenshots/05-monitor.png)
+
+Watch any reproduced factor live. Alert when 30-day IC moving average crosses your threshold (decay, sign-flip, sample concentration). Sparkline shows raw IC + 7-pt MA against zero baseline.
+
+### 🤖 Agent · find papers from arxiv / SSRN / Scholar
+
+![Agent search](docs/images/screenshots/02-agent-search.png)
+
+Don't have a PDF? Describe a research direction in plain English: *"Latest momentum factors in CSI 500 (2024)"* / *"Post-publication decay of value anomalies"*. Agent ranks candidates and lets you pick which to reproduce.
+
+### 📚 Library · your archive, queryable
+
+![Library](docs/images/screenshots/04-library.png)
+
+26 papers in this snapshot. Sort by claimed IC, reproduced IC, score, family, year. Filter, multi-select, batch-rerun, export.
+
+### 🛠️ IDE workspace · Cursor for quant research
+
+![IDE workspace](docs/images/screenshots/03-ide.png)
+
+Every reproduction is a full editable workspace: PDF + Claude-generated `factor.py` / `backtest.py` / `redteam.py`, terminal, and an in-context agent that knows the verdict, the data, and the code. Quick-actions surface the right next move per verdict ("Why is the verdict not green?" / "Fix the sign-flip" / "Add 1/99 winsorization" / "Audit for look-ahead leakage").
+
+---
+
+Bilingual UI (EN / 中文) · dark mode default · keyboard-first (`⌘K` for everything).
+
 ## Live demo — real research paper on real A-share data
 
 Reproducing **Zeng & Liu (2016) "Momentum and Reversal Effects on the Chinese Stock Market"** on CSI 300 top-30 with Tushare Pro daily data, 2022-01 to 2024-12:
