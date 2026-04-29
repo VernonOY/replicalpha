@@ -19,6 +19,9 @@ dependencies = [
     "rich>=13.7",
     "pydantic>=2.7",
     "pandas>=2.2",
+    "numpy>=1.26",
+    "scipy>=1.13",
+    "statsmodels>=0.14",
     "fastapi>=0.110",
     "uvicorn>=0.29",
     "openai>=1.40",
@@ -73,7 +76,7 @@ strict = true
 exclude = ["src/replicalpha/vendored/"]
 
 [[tool.mypy.overrides]]
-module = ["fitz", "openai.*", "tushare", "matplotlib.*"]
+module = ["fitz", "openai.*", "tushare", "matplotlib.*", "scipy.*", "statsmodels.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
