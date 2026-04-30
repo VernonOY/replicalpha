@@ -103,9 +103,9 @@ def _newey_west_ols(
 
 
 def _align_index(
-    portfolio_returns: "pd.Series[float]",
+    portfolio_returns: pd.Series[float],
     ff_factors: pd.DataFrame,
-) -> "tuple[pd.Series[float], pd.DataFrame]":
+) -> tuple[pd.Series[float], pd.DataFrame]:
     """Align portfolio returns and factor DataFrame on a common DatetimeIndex."""
     port = portfolio_returns.copy()
     factors = ff_factors.copy()
@@ -122,7 +122,7 @@ def _align_index(
 
 def _sector_exposures_from_holdings(
     holdings: dict[date, dict[str, float]],
-    metadata: "dict[str, dict[str, object]]",
+    metadata: dict[str, dict[str, object]],
 ) -> list[SectorExposure]:
     """Compute time-mean sector weights from holdings snapshots.
 
@@ -187,9 +187,9 @@ def _sector_exposures_from_holdings(
 
 def attribute_risk(
     *,
-    portfolio_returns: "pd.Series[float]",
+    portfolio_returns: pd.Series[float],
     portfolio_holdings: dict[date, dict[str, float]],
-    metadata: "dict[str, dict[str, object]]",
+    metadata: dict[str, dict[str, object]],
     ff_factors: pd.DataFrame,
     benchmark: str = "csi300",
 ) -> RiskAttribution:
@@ -345,7 +345,7 @@ def build_ff_factors_from_universe(
 
     # Build a clean close-price DataFrame indexed by trading days
     n_all = len(trading_days)
-    frames: dict[str, "pd.Series[float]"] = {}
+    frames: dict[str, pd.Series[float]] = {}
     for ticker, vals in price_raw.items():
         if len(vals) == n_all:
             frames[ticker] = pd.Series(vals, index=trading_days, dtype=float)

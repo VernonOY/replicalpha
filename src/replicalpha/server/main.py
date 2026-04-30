@@ -26,6 +26,12 @@ app = FastAPI(title="replicalpha", version="0.1.0")
 RUNS_ROOT = Path(os.environ.get("RUNS_ROOT", "./runs"))
 DATA_CSV = Path(os.environ.get("REPLICALPHA_DATA_CSV", "tests/cases/sample_market_data.csv"))
 
+# Wire the agent SSE router. Imported after ``RUNS_ROOT`` / ``DATA_CSV`` are
+# defined because the router reads them lazily at request time.
+from replicalpha.server.agent import router as agent_router  # noqa: E402
+
+app.include_router(agent_router)
+
 
 @app.get("/")
 def root() -> dict[str, str]:
