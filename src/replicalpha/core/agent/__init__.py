@@ -16,6 +16,14 @@ Public surface:
 
 from __future__ import annotations
 
+from replicalpha.core.agent.runner import (
+    AgentRunner,
+    AgentSession,
+    ChatMessage,
+    Event,
+    EventType,
+    build_system_prompt,
+)
 from replicalpha.core.agent.tool_registry import (
     DisplayHint,
     RegisteredTool,
@@ -28,7 +36,12 @@ from replicalpha.core.agent.tool_registry import (
 )
 
 __all__ = [
+    "AgentRunner",
+    "AgentSession",
+    "ChatMessage",
     "DisplayHint",
+    "Event",
+    "EventType",
     "RegisteredTool",
     "ToolContext",
     "ToolImpl",
@@ -36,4 +49,5 @@ __all__ = [
     "ToolResult",
     "ToolSchema",
     "build_default_registry",
+    "build_system_prompt",
 ]
