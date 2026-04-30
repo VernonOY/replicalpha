@@ -173,17 +173,18 @@ def _install_fake_runner(
     return fake
 
 
-def _reset_state() -> None:
-    """Clear in-memory session state so tests are isolated."""
-    agent_module._SESSIONS.clear()
-    agent_module._CANCELLATION.clear()
-
-
 @pytest.fixture(autouse=True)
-def _isolate_sessions() -> Iterator[None]:
-    _reset_state()
+def _isolate_sessions(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[None]:
+    """Give every test a fresh SQLite DB + clear cancellation flags."""
+    db_path = tmp_path_factory.mktemp("storage") / "agent.sqlite"
+    monkeypatch.setenv("REPLICALPHA_DB_PATH", str(db_path))
+    agent_module._reset_storage_for_tests()
+    agent_module._CANCELLATION.clear()
     yield
-    _reset_state()
+    agent_module._CANCELLATION.clear()
+    agent_module._reset_storage_for_tests()
 
 
 def _parse_sse(body: str) -> list[dict[str, Any]]:
@@ -542,3 +543,138 @@ def test_chat_with_history_seeds_session(monkeypatch: pytest.MonkeyPatch, tmp_pa
     # 2 seed + 1 user + 1 assistant = 4
     assert len(state["history"]) == 4
     assert state["history"][0]["content"] == "earlier user msg"
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: SQLite persistence + REST artifact endpoints
+# ---------------------------------------------------------------------------
+
+
+def test_session_persists_across_storage_handle_reset(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    """A session written to SQLite survives a fresh ``Storage`` handle.
+
+    This simulates a server restart: we drop the cached storage, then a
+    subsequent ``GET /agent/chat/{id}`` re-opens the same DB file and reads
+    the persisted history.
+    """
+    _install_fake_runner(
+        monkeypatch,
+        [ScriptedTurn(text="persisted reply")],
+        tmp_path,
+    )
+    client = TestClient(app)
+    sid = "chat-persist-1"
+
+    with client.stream(
+        "POST",
+        "/agent/chat",
+        json={"session_id": sid, "message": "hi persist"},
+    ) as resp:
+        resp.read()
+        assert resp.status_code == 200
+
+    # Simulate a server restart by dropping the cached storage handle. The
+    # next call will re-open the same SQLite file.
+    agent_module._reset_storage_for_tests()
+
+    state = client.get(f"/agent/chat/{sid}")
+    assert state.status_code == 200
+    body = state.json()
+    assert body["session_id"] == sid
+    assert len(body["history"]) == 2  # one user + one assistant
+    assert body["history"][0]["role"] == "user"
+    assert body["history"][0]["content"] == "hi persist"
+
+
+def test_get_analysis_404_when_missing(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    runs_root = tmp_path / "runs"
+    runs_root.mkdir()
+    (runs_root / "r-empty").mkdir()
+
+    from replicalpha.server import main as server_main
+
+    monkeypatch.setattr(server_main, "RUNS_ROOT", runs_root)
+    client = TestClient(app)
+
+    resp = client.get("/runs/r-empty/analysis")
+    assert resp.status_code == 404
+    resp = client.get("/runs/r-empty/attribution")
+    assert resp.status_code == 404
+    resp = client.get("/runs/r-empty/robustness")
+    assert resp.status_code == 404
+
+
+def test_get_analysis_returns_payload(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    runs_root = tmp_path / "runs"
+    run_dir = runs_root / "r-with-analysis"
+    run_dir.mkdir(parents=True)
+    payload = {"ic_stats": {"mean": 0.05, "ir": 1.2}, "monotonicity": {"is_monotonic": True}}
+    (run_dir / "analysis.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    from replicalpha.server import main as server_main
+
+    monkeypatch.setattr(server_main, "RUNS_ROOT", runs_root)
+    client = TestClient(app)
+
+    resp = client.get("/runs/r-with-analysis/analysis")
+    assert resp.status_code == 200
+    assert resp.json() == payload
+
+
+def test_list_runs_aggregates_run_dirs(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    runs_root = tmp_path / "runs"
+    runs_root.mkdir()
+
+    # Run 1: full report
+    r1 = runs_root / "r-aaa"
+    r1.mkdir()
+    (r1 / "report.json").write_text(
+        json.dumps(
+            {
+                "run_id": "r-aaa",
+                "paper_path": "/tmp/paper1.pdf",
+                "verdict": "strong",
+                "reproducibility": {"final_score": 0.85},
+                "backtest": {"ic_mean": 0.06},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    # Run 2: only pipeline_report.json
+    r2 = runs_root / "r-bbb"
+    r2.mkdir()
+    (r2 / "pipeline_report.json").write_text(
+        json.dumps(
+            {
+                "reproducibility": {"final_score": 0.30},
+                "backtest": {"ic_mean": 0.01},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    # Run 3: missing report — should still appear with nulls.
+    (runs_root / "r-ccc").mkdir()
+
+    from replicalpha.server import main as server_main
+
+    monkeypatch.setattr(server_main, "RUNS_ROOT", runs_root)
+    client = TestClient(app)
+
+    resp = client.get("/runs")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["n"] == 3
+    ids = {r["run_id"] for r in body["runs"]}
+    assert ids == {"r-aaa", "r-bbb", "r-ccc"}
+
+    by_id = {r["run_id"]: r for r in body["runs"]}
+    assert by_id["r-aaa"]["verdict"] == "strong"
+    assert by_id["r-aaa"]["score"] == 0.85
+    # Auto-derived verdict for r-bbb: score 0.30 → "weak"
+    assert by_id["r-bbb"]["verdict"] == "weak"
+    assert by_id["r-ccc"]["verdict"] is None
+    assert by_id["r-ccc"]["score"] is None

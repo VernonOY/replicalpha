@@ -5,6 +5,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- SQLite persistence layer (`core.storage.Storage`) for runs, analyses,
+  agent sessions/messages, and portfolios. DB path overridable via
+  `REPLICALPHA_DB_PATH`; defaults to `~/.replicalpha/db.sqlite`.
+- REST endpoints for analysis artifacts: `GET /runs`,
+  `GET /runs/{id}/analysis|attribution|robustness`, plus matching
+  `POST .../compute` triggers that dispatch through the agent tool registry.
+
+### Changed
+- `server/agent.py` chat sessions now persist to SQLite (replacing the
+  process-local `_SESSIONS` dict). Cancellation flags remain in-memory.
+
 ## [0.1.0] — 2026-04-22
 
 ### Added
