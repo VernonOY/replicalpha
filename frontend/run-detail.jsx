@@ -13,6 +13,7 @@ function RunDetail({ runId, onBack, onOpenRun, onOpenIde, onNav }) {
   const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
 
   const [tab, setTab] = React.useState('verdict');
+  const [chatOpen, setChatOpen] = React.useState(false);
 
   const stages = [
     { id: 'extract', label: 'Extract',  status: 'done', detail: 'paper2alpha · LLM ✓' },
@@ -54,8 +55,28 @@ function RunDetail({ runId, onBack, onOpenRun, onOpenIde, onNav }) {
         <div style={{display:'flex', alignItems:'center', gap:6}}>
           <button disabled={!prev} onClick={() => prev && onOpenRun(prev.id)} title={prev?prev.title:''} style={navBtn(!prev)}>{window.t("run.prev")}</button>
           <button disabled={!next} onClick={() => next && onOpenRun(next.id)} title={next?next.title:''} style={navBtn(!next)}>{window.t("run.next")}</button>
+          <button onClick={()=>setChatOpen(o=>!o)} style={{
+            background: chatOpen ? 'var(--accent)' : 'transparent',
+            color: chatOpen ? '#fff' : 'var(--text-2)',
+            border:'1px solid var(--border)', borderRadius:4,
+            padding:'6px 10px', fontFamily:'var(--mono)', fontSize:11, cursor:'pointer',
+            marginLeft:6,
+          }} title="Toggle agent chat">Agent</button>
         </div>
       </div>
+
+      {/* Right-side agent chat dock — only when window.AgentChat is loaded */}
+      {chatOpen && window.AgentChat && (
+        <div style={{
+          position:'fixed', top:0, right:0, bottom:0, width:400, zIndex:50,
+          background:'var(--surface-1)', borderLeft:'1px solid var(--border)',
+          boxShadow:'-4px 0 16px rgba(0,0,0,0.25)', padding:10,
+          display:'flex', flexDirection:'column',
+        }}>
+          <window.AgentChat runId={runId} fullPanel={true}
+                            onClose={() => setChatOpen(false)}/>
+        </div>
+      )}
 
       {/* Big verdict callout + score gauge */}
       <div style={{

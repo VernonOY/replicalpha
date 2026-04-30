@@ -35,6 +35,7 @@ LOAD_ORDER = [
     "pages.jsx",
     "api.jsx",        # NEW v0.4 — fetch wrapper, attaches window.api
     "analysis.jsx",   # NEW v0.4 — Analysis page, attaches window.AnalysisPage
+    "agent-chat.jsx", # NEW v0.4 pt2 — SSE-streaming agent chat box, attaches window.AgentChat
     "app.jsx",
 ]
 

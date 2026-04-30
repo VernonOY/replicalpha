@@ -1,0 +1,12 @@
+# User uploads (PDFs, images dropped via the UI)
+uploads/
+
+# OS junk
+.DS_Store
+
+# Old / experimental backups (keep only the ones explicitly committed)
+replicalpha.html.backup-2026-04-29
+replicalpha.html.before-charts
+
+# Misc
+debug.html
