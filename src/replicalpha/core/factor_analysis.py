@@ -21,10 +21,11 @@ from datetime import date, timedelta
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from scipy.stats import norm, spearmanr
 from statsmodels.regression.linear_model import OLS
 from statsmodels.tools import add_constant
+from statsmodels.tsa.stattools import acf
 
 from replicalpha.core.backtest import ComputeFn
 from replicalpha.core.data import DataAdapter
@@ -72,6 +73,20 @@ class ForwardICEntry(BaseModel):
     n_obs: int
 
 
+class ICAutocorrLag(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    lag: int
+    rho: float
+
+
+class QuintileCumPoint(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    date: str  # ISO YYYY-MM-DD
+    value: float  # cumulative return, e.g. 0.05 = +5%
+
+
 class FactorAnalysisReport(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -82,6 +97,9 @@ class FactorAnalysisReport(BaseModel):
     long_short_spread: float
     long_short_t_stat: float
     forward_ic: list[ForwardICEntry]  # one per horizon
+    # NEW v0.4:
+    ic_autocorrelation: list[ICAutocorrLag] = Field(default_factory=list)
+    quintile_cumret: dict[str, list[QuintileCumPoint]] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -311,6 +329,12 @@ def analyze_factor(
     # Forward IC: collect IC values per horizon
     horizon_ic_values: dict[int, list[float]] = {h: [] for h in horizons}
 
+    # Per-(date, quintile) 1-day forward returns for cumret computation.
+    # quintile_daily_rets[q_idx] -> list of (date, 1d_fwd_ret) tuples
+    quintile_daily_rets: dict[int, list[tuple[date, float]]] = {
+        q: [] for q in range(1, n_quantiles + 1)
+    }
+
     for as_of in rebalance_dates:
         try:
             scores_raw = compute(adapter, as_of, universe)
@@ -350,6 +374,18 @@ def analyze_factor(
                             aligned.loc[q_high, "fwd"].mean() - aligned.loc[q_low, "fwd"].mean()
                         )
                         ls_series.append(ls_ret)
+
+                    # Per-quintile 1-day forward return for cumret series.
+                    fwd_1d = _forward_return_at_horizon(close_df, trading_days, as_of, 1)
+                    if fwd_1d:
+                        fwd_1d_series = pd.Series(fwd_1d, dtype=float)
+                        for q_idx in range(1, n_quantiles + 1):
+                            members = aligned.index[buckets == q_idx]
+                            if len(members) > 0:
+                                q_members_1d = fwd_1d_series.reindex(members).dropna()
+                                if not q_members_1d.empty:
+                                    q_1d_ret = float(q_members_1d.mean())
+                                    quintile_daily_rets[q_idx].append((as_of, q_1d_ret))
 
         # ------ Forward IC at each horizon ------
         for h in horizons:
@@ -439,6 +475,41 @@ def analyze_factor(
             )
         )
 
+    # ------------------------------------------------------------------
+    # Step 9: IC autocorrelation (lags 1..20)
+    # ------------------------------------------------------------------
+    ic_autocorrelation: list[ICAutocorrLag] = []
+    ic_values_arr = np.array(list(ic_series_dict.values()), dtype=float)
+    ic_values_arr = ic_values_arr[~np.isnan(ic_values_arr)]
+    if len(ic_values_arr) >= 21:
+        try:
+            rhos = acf(ic_values_arr, nlags=20, fft=False)
+            ic_autocorrelation = [
+                ICAutocorrLag(
+                    lag=int(i),
+                    rho=float(rhos[i]) if np.isfinite(rhos[i]) else 0.0,
+                )
+                for i in range(1, 21)
+            ]
+        except Exception:
+            ic_autocorrelation = []
+
+    # ------------------------------------------------------------------
+    # Step 10: Quintile cumulative return series (1-day fwd, compounded)
+    # ------------------------------------------------------------------
+    quintile_cumret: dict[str, list[QuintileCumPoint]] = {}
+    for q_idx in range(1, n_quantiles + 1):
+        records = sorted(quintile_daily_rets[q_idx], key=lambda x: x[0])
+        if not records:
+            continue
+        cum = 1.0
+        points: list[QuintileCumPoint] = []
+        for d, r in records:
+            cum *= 1.0 + r
+            points.append(QuintileCumPoint(date=d.isoformat(), value=float(cum - 1.0)))
+        if points:
+            quintile_cumret[f"Q{q_idx}"] = points
+
     return FactorAnalysisReport(
         ic=ic_stats,
         ic_series=ic_series_dict,
@@ -447,6 +518,8 @@ def analyze_factor(
         long_short_spread=ls_spread,
         long_short_t_stat=ls_t,
         forward_ic=forward_ic_entries,
+        ic_autocorrelation=ic_autocorrelation,
+        quintile_cumret=quintile_cumret,
     )
 
 

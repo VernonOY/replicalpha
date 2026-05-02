@@ -19,9 +19,11 @@ import pytest
 from replicalpha.core.data import CSVAdapter
 from replicalpha.core.factor_analysis import (
     FactorAnalysisReport,
+    ICAutocorrLag,
     ICStats,
     MonotonicityResult,
     QuintileBucket,
+    QuintileCumPoint,
     analyze_factor,
 )
 
@@ -754,3 +756,112 @@ def test_assign_quintile_duplicate_values() -> None:
     result = _assign_quintile(scores, n_quantiles=5)
     # With all identical values, qcut may fail or return a partial result
     assert isinstance(result, pd.Series)
+
+
+# ---------------------------------------------------------------------------
+# v0.4 Stage 3a tests: IC autocorrelation + quintile cumulative return
+# ---------------------------------------------------------------------------
+
+
+def test_analyze_factor_ic_autocorrelation() -> None:
+    """Synthetic factor with persistent IC produces a 20-lag autocorrelation list."""
+    adapter, trading_days, close_matrix = _build_perfect_factor_adapter(
+        n_tickers=20, n_days=600, ic_horizon=21
+    )
+    compute = _make_perfect_compute(close_matrix, trading_days, ic_horizon=21)
+    start = trading_days[30]
+    end = trading_days[500]
+
+    report = analyze_factor(
+        compute=compute,
+        adapter=adapter,
+        start=start,
+        end=end,
+        horizons=[1, 5, 21],
+        rebalance_step=5,
+    )
+
+    # We need at least 21 IC observations to produce 20 lags.
+    assert len(report.ic_series) >= 21, (
+        f"Expected >=21 IC observations, got {len(report.ic_series)}"
+    )
+    assert len(report.ic_autocorrelation) == 20
+    assert all(isinstance(entry, ICAutocorrLag) for entry in report.ic_autocorrelation)
+    # Lags ascending 1..20
+    lags = [entry.lag for entry in report.ic_autocorrelation]
+    assert lags == list(range(1, 21))
+    # First entry's rho is finite
+    rho1 = report.ic_autocorrelation[0].rho
+    assert isinstance(rho1, float)
+    assert math.isfinite(rho1)
+    # All rhos finite and in [-1, 1] (acf output bounds)
+    for entry in report.ic_autocorrelation:
+        assert math.isfinite(entry.rho)
+        assert -1.0 - 1e-9 <= entry.rho <= 1.0 + 1e-9
+
+
+def test_analyze_factor_quintile_cumret() -> None:
+    """Quintile cumret keyed by Q1..Q5 with sorted ISO dates and float values."""
+    adapter, trading_days, close_matrix = _build_perfect_factor_adapter(
+        n_tickers=30, n_days=300, ic_horizon=21
+    )
+    compute = _make_perfect_compute(close_matrix, trading_days, ic_horizon=21)
+    start = trading_days[30]
+    end = trading_days[200]
+
+    report = analyze_factor(
+        compute=compute,
+        adapter=adapter,
+        start=start,
+        end=end,
+        horizons=[1, 5, 21],
+        rebalance_step=5,
+    )
+
+    # Must contain at least Q1 and Q5
+    assert {"Q1", "Q5"}.issubset(set(report.quintile_cumret.keys()))
+
+    for key, points in report.quintile_cumret.items():
+        assert key.startswith("Q")
+        assert all(isinstance(p, QuintileCumPoint) for p in points)
+        assert len(points) > 0
+        # Each value is a float (and finite)
+        for p in points:
+            assert isinstance(p.value, float)
+            assert math.isfinite(p.value)
+        # Dates ISO-formatted and sorted ascending
+        iso_dates = [p.date for p in points]
+        assert iso_dates == sorted(iso_dates)
+        # Date strings parseable as ISO YYYY-MM-DD
+        for s in iso_dates:
+            date.fromisoformat(s)
+
+    # Perfect factor: Q5 cumulative return should beat Q1 by the end.
+    q5_final = report.quintile_cumret["Q5"][-1].value
+    q1_final = report.quintile_cumret["Q1"][-1].value
+    assert q5_final > q1_final
+
+
+def test_analyze_factor_ic_autocorrelation_short_series() -> None:
+    """Fewer than 21 IC observations yields empty ic_autocorrelation; report still validates."""
+    # Tiny window so that we get < 21 rebalance dates / IC observations.
+    adapter, trading_days, close_matrix = _build_perfect_factor_adapter(
+        n_tickers=20, n_days=200, ic_horizon=21
+    )
+    compute = _make_perfect_compute(close_matrix, trading_days, ic_horizon=21)
+    # 30..70 with rebalance_step=5 -> only ~9 rebalance dates -> well under 21 IC obs.
+    start = trading_days[30]
+    end = trading_days[70]
+
+    report = analyze_factor(
+        compute=compute,
+        adapter=adapter,
+        start=start,
+        end=end,
+        horizons=[1, 5, 21],
+        rebalance_step=5,
+    )
+
+    assert isinstance(report, FactorAnalysisReport)
+    assert len(report.ic_series) < 21
+    assert report.ic_autocorrelation == []
