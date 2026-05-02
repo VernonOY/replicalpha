@@ -12,9 +12,11 @@ from __future__ import annotations
 import importlib.util
 import json
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
+
+import pandas as pd
 
 from replicalpha.core.backtest import run_backtest
 from replicalpha.core.codegen import CodegenError, generate_factor_code
@@ -133,6 +135,23 @@ def run_pipeline(
             json.dumps(backtest_result.model_dump(), indent=2, ensure_ascii=False, default=str),
             encoding="utf-8",
         )
+
+        # Persist scores + forward-1d returns panels for downstream robustness
+        # (universe_split_ic in particular needs these).
+        try:
+            scores_panel, returns_panel = _build_panels(
+                compute=compute_fn,
+                adapter=adapter,
+                start=backtest_start,
+                end=backtest_end,
+                universe=universe,
+            )
+            _save_panel(scores_panel, out_dir / "scores_panel")
+            _save_panel(returns_panel, out_dir / "returns_panel")
+        except Exception:
+            # Panel persistence is best-effort — don't fail the pipeline if it errors.
+            pass
+
         completed.append("backtest")
 
     # ── Stage 4: validate ─────────────────────────────────────────────────────
@@ -202,6 +221,73 @@ def _load_compute(code_path: Path, factor_name: str) -> Any:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module.compute
+
+
+def _build_panels(
+    *,
+    compute: Any,
+    adapter: DataAdapter,
+    start: date,
+    end: date,
+    universe: str,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Compute (scores_panel, returns_panel) DataFrames indexed by date by ticker.
+
+    For each trading day in [start, end-1d]:
+    - score row = compute(adapter, day, universe)
+    - return row = forward 1-day return per ticker
+
+    Returns empty DataFrames if data is unavailable.
+    """
+    trading_days = adapter.get_trading_days(start, end)
+    if len(trading_days) < 2:
+        return pd.DataFrame(), pd.DataFrame()
+
+    px = adapter.get_price("close", start, end + timedelta(days=7), universe)
+    close_df = pd.DataFrame({t: pd.Series(v) for t, v in px.items()})
+
+    score_rows: dict[date, dict[str, float]] = {}
+    return_rows: dict[date, dict[str, float]] = {}
+
+    for i, as_of in enumerate(trading_days[:-1]):
+        next_day = trading_days[i + 1]
+        scores = compute(adapter, as_of, universe)
+        if not scores:
+            continue
+        # Forward 1d return per ticker
+        rets: dict[str, float] = {}
+        for ticker in close_df.columns:
+            series = close_df[ticker]
+            if i >= len(series) or i + 1 >= len(series):
+                continue
+            p0 = series.iloc[i]
+            p1 = series.iloc[i + 1]
+            if pd.notna(p0) and pd.notna(p1) and p0 != 0:
+                rets[str(ticker)] = float(p1 / p0 - 1)
+        score_rows[as_of] = scores
+        return_rows[next_day] = rets
+
+    if not score_rows:
+        return pd.DataFrame(), pd.DataFrame()
+
+    scores_panel = pd.DataFrame.from_dict(score_rows, orient="index").sort_index()
+    returns_panel = pd.DataFrame.from_dict(return_rows, orient="index").sort_index()
+    # Align columns (union of tickers in both panels)
+    all_cols = sorted(set(scores_panel.columns) | set(returns_panel.columns))
+    scores_panel = scores_panel.reindex(columns=all_cols)
+    returns_panel = returns_panel.reindex(columns=all_cols)
+    return scores_panel, returns_panel
+
+
+def _save_panel(df: pd.DataFrame, base_path: Path) -> None:
+    """Save DataFrame to parquet if pyarrow available, else fall back to pickle."""
+    if df.empty:
+        return
+    try:
+        df.to_parquet(base_path.with_suffix(".parquet"))
+    except (ImportError, ValueError):
+        # pyarrow / fastparquet not installed → pickle fallback
+        df.to_pickle(base_path.with_suffix(".pkl"))
 
 
 def _empty_backtest(start: date, end: date) -> BacktestResult:

@@ -325,3 +325,61 @@ def test_universe_split_small_cap_higher_ic() -> None:
     assert small.ic > large.ic, (
         f"Expected small_cap.ic ({small.ic:.4f}) > large_cap.ic ({large.ic:.4f})"
     )
+
+
+# ---------------------------------------------------------------------------
+# Test 9 - universe_split_ic_real: synthetic panels + metadata produce all
+#                                  3 terciles with positive n_stocks
+# ---------------------------------------------------------------------------
+
+
+def test_universe_split_ic_real() -> None:
+    """Realistic call: synthetic panels + metadata.market_cap → 3 terciles."""
+    rng = np.random.RandomState(123)
+    n_dates = 25
+    dates = pd.date_range("2023-01-03", periods=n_dates, freq="B")
+
+    tickers = [f"X{i:03d}" for i in range(18)]
+    scores = pd.DataFrame(
+        rng.normal(size=(n_dates, len(tickers))),
+        index=dates,
+        columns=tickers,
+    )
+    returns = pd.DataFrame(
+        rng.normal(0, 0.01, size=(n_dates, len(tickers))),
+        index=dates,
+        columns=tickers,
+    )
+    metadata: dict[str, dict[str, object]] = {
+        ticker: {"market_cap": float(i + 1) * 1e8} for i, ticker in enumerate(tickers)
+    }
+
+    result = universe_split_ic(scores, returns, metadata)
+
+    assert len(result) == 3
+    for entry in result:
+        assert entry.n_stocks > 0
+        assert isinstance(entry.ic, float)
+        assert isinstance(entry.t_stat, float)
+
+
+# ---------------------------------------------------------------------------
+# Test 10 - universe_split_ic edge cases: empty inputs return []
+# ---------------------------------------------------------------------------
+
+
+def test_universe_split_ic_empty_metadata() -> None:
+    """Empty metadata → empty list, no crash."""
+    dates = pd.date_range("2023-01-03", periods=5, freq="B")
+    scores = pd.DataFrame(0.0, index=dates, columns=["A", "B"])
+    returns = pd.DataFrame(0.0, index=dates, columns=["A", "B"])
+
+    result = universe_split_ic(scores, returns, {})
+    assert result == []
+
+
+def test_universe_split_ic_empty_panels() -> None:
+    """Empty panels → empty list, no crash."""
+    metadata: dict[str, dict[str, object]] = {"A": {"market_cap": 1e9}}
+    result = universe_split_ic(pd.DataFrame(), pd.DataFrame(), metadata)
+    assert result == []

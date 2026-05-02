@@ -291,10 +291,14 @@ def universe_split_ic(
 
     Returns
     -------
-    List of three ``UniverseSliceIC`` entries in order:
-    large_cap, mid_cap, small_cap.
+    List of up to three ``UniverseSliceIC`` entries (large_cap, mid_cap,
+    small_cap). Empty list if any input is empty or no metadata aligns with
+    the score panel.
     """
     from scipy.stats import spearmanr  # local import — scipy already a dep
+
+    if scores_panel.empty or returns_panel.empty or not metadata:
+        return []
 
     # Collect market caps for tickers present in the panel
     all_tickers = list(scores_panel.columns)
@@ -306,11 +310,7 @@ def universe_split_ic(
                 caps[ticker] = float(mc_raw)
 
     if not caps:
-        return [
-            UniverseSliceIC(slice_name="large_cap", ic=0.0, t_stat=0.0, n_stocks=0),
-            UniverseSliceIC(slice_name="mid_cap", ic=0.0, t_stat=0.0, n_stocks=0),
-            UniverseSliceIC(slice_name="small_cap", ic=0.0, t_stat=0.0, n_stocks=0),
-        ]
+        return []
 
     # Assign tercile labels by market cap
     cap_series = pd.Series(caps, dtype=float).sort_values()
@@ -362,9 +362,11 @@ def universe_split_ic(
     )
     result: list[UniverseSliceIC] = []
     for sname_lit in _slice_names:
+        n_stocks = len(slice_tickers[sname_lit])
+        if n_stocks == 0:
+            continue
         vals = slice_ic_values[sname_lit]
         ic_mean, ic_t, _ = _aggregate_ic_group(vals)
-        n_stocks = len(slice_tickers[sname_lit])
         result.append(
             UniverseSliceIC(
                 slice_name=sname_lit,

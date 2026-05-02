@@ -213,6 +213,26 @@ def _load_compute_from_file(code_path: Path, factor_name: str) -> Any:
     return module.compute
 
 
+def _load_panel(base_path: Path) -> Any:
+    """Load a panel DataFrame written by the orchestrator.
+
+    Tries parquet first, then pickle. Returns an empty DataFrame if neither
+    exists (backward-compat for v0.3 runs without persisted panels).
+    """
+    import pandas as pd
+
+    parquet = base_path.with_suffix(".parquet")
+    pkl = base_path.with_suffix(".pkl")
+    if parquet.exists():
+        try:
+            return pd.read_parquet(parquet)
+        except (ImportError, ValueError):
+            pass
+    if pkl.exists():
+        return pd.read_pickle(pkl)
+    return pd.DataFrame()
+
+
 def _stub_result(extra: dict[str, Any] | None = None) -> ToolResult:
     """Build a v0.5 'not implemented' stub result."""
     payload: dict[str, Any] = {"status": "not_implemented_in_v0.4"}
@@ -454,13 +474,19 @@ def _impl_run_robustness(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             out["regimes"] = []
 
     if kind in ("all", "universe"):
-        # universe_split needs scores + returns panels — not stored on disk yet
-        # in v0.4. Provide an empty result with a note rather than blowing up.
-        if ctx.data_csv is not None and ctx.data_csv.exists():
+        # universe_split needs scores + returns panels persisted by the
+        # orchestrator (parquet preferred, pickle fallback). v0.3 runs that
+        # don't have these files yield an empty list (backward-compat).
+        scores_panel = _load_panel(run_dir / "scores_panel")
+        returns_panel = _load_panel(run_dir / "returns_panel")
+        if (
+            ctx.data_csv is not None
+            and ctx.data_csv.exists()
+            and not scores_panel.empty
+            and not returns_panel.empty
+        ):
             adapter = CSVAdapter(ctx.data_csv)
             metadata = adapter.get_metadata()
-            scores_panel = pd.DataFrame()
-            returns_panel = pd.DataFrame()
             out["universe_split"] = [
                 u.model_dump() for u in universe_split_ic(scores_panel, returns_panel, metadata)
             ]
