@@ -323,6 +323,9 @@ def _impl_run_factor_analysis(args: dict[str, Any], ctx: ToolContext) -> ToolRes
         "long_short_t_stat": payload_serializable["long_short_t_stat"],
         "forward_ic": payload_serializable["forward_ic"],
         "ic_series": payload_serializable["ic_series"],
+        # v0.4 Stage 3a additions:
+        "ic_autocorrelation": payload_serializable.get("ic_autocorrelation", []),
+        "quintile_cumret": payload_serializable.get("quintile_cumret", {}),
     }
     _write_json(cache, out)
     return ToolResult(ok=True, data=out, display_hint="metric_grid")
@@ -394,6 +397,24 @@ def _impl_run_risk_attribution(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         ff_factors=ff,
     )
     out = json.loads(json.dumps(result.model_dump(), default=str))
+
+    # v0.4 Stage 3d: enrich with portfolio-level metrics. Use the IC series as
+    # a proxy portfolio_returns (consistent with the existing simplification
+    # documented above). For turnover, we don't have a real holdings panel, so
+    # this is omitted — `turnover` will be empty and the frontend will show
+    # NoData with a sensible label. Capacity uses the proxy returns directly.
+    from replicalpha.core.portfolio_metrics import (
+        compute_capacity_curves,
+        compute_turnover,
+    )
+
+    capacity_rep = compute_capacity_curves(port_returns)
+    out["capacity"] = json.loads(json.dumps(capacity_rep.model_dump(), default=str))
+    # Turnover requires a holdings panel; with v0.4 we don't persist one, so
+    # report an empty TurnoverReport (frontend renders NoData gracefully).
+    out["turnover"] = json.loads(
+        json.dumps(compute_turnover(pd.DataFrame()).model_dump(), default=str)
+    )
     _write_json(cache, out)
     return ToolResult(ok=True, data=out, display_hint="chart")
 

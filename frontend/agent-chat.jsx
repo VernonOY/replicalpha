@@ -15,7 +15,9 @@
 async function streamChat({ runId, sessionId, message, model, costCap, history,
                             onEvent, onDone, onError, signal }) {
   try {
-    const base = (window.api && window.api.base) || 'http://localhost:8000';
+    const base = (window.api && typeof window.api.base === 'string')
+      ? window.api.base
+      : (location.protocol === 'http:' || location.protocol === 'https:' ? '' : 'http://localhost:8000');
     const res = await fetch(base + '/agent/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },

@@ -31,8 +31,17 @@ function Landing({ onStart }) {
           <Mono size={16} color="#eab308">weak</Mono>, or <Mono size={16} color="#ef4444">sign-flipped</Mono>.
         </p>
 
-        {/* AI chat console */}
-        <AIChatConsole onStart={onStart}/>
+        {/* AI chat console — v0.4 wires the live SSE AgentChat here when loaded */}
+        {window.AgentChat
+          ? (
+            <div style={{
+              border:'1px solid var(--border)', borderRadius:8, overflow:'hidden',
+              background:'var(--surface-1)', marginBottom:48, height:420,
+            }}>
+              <window.AgentChat runId={null} fullPanel={true} height={420}/>
+            </div>
+          )
+          : <AIChatConsole onStart={onStart}/>}
 
         {/* Sample timeline preview */}
         <div style={{

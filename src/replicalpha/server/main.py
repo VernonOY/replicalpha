@@ -23,7 +23,9 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, UploadFile
-from fastapi.responses import PlainTextResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 
 from replicalpha.core.agent.tool_registry import ToolContext, build_default_registry
 from replicalpha.core.data import CSVAdapter
@@ -32,14 +34,42 @@ from replicalpha.vendored.paper2alpha.core.llm_client import OpenAIClient
 
 app = FastAPI(title="replicalpha", version="0.1.0")
 
+# Allow the bundled HTML (file:// or any localhost origin) to call this API.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
+
 RUNS_ROOT = Path(os.environ.get("RUNS_ROOT", "./runs"))
 DATA_CSV = Path(os.environ.get("REPLICALPHA_DATA_CSV", "tests/cases/sample_market_data.csv"))
+FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 
 # Wire the agent SSE router. Imported after ``RUNS_ROOT`` / ``DATA_CSV`` are
 # defined because the router reads them lazily at request time.
 from replicalpha.server.agent import router as agent_router  # noqa: E402
 
 app.include_router(agent_router)
+
+# Serve the bundled HTML at /ui so the frontend is same-origin with the API
+# (no CORS / file:// quirks).
+if FRONTEND_DIR.exists():
+    app.mount("/ui/static", StaticFiles(directory=str(FRONTEND_DIR)), name="ui-static")
+
+    @app.get("/ui", include_in_schema=False)
+    @app.get("/ui/", include_in_schema=False)
+    def serve_ui() -> FileResponse:
+        return FileResponse(
+            str(FRONTEND_DIR / "replicalpha.html"),
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
 
 
 # ---------------------------------------------------------------------------
