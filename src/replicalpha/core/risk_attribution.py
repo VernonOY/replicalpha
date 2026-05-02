@@ -24,7 +24,7 @@ from datetime import date
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from statsmodels.regression.linear_model import OLS
 from statsmodels.tools import add_constant
 
@@ -54,6 +54,18 @@ class SectorExposure(BaseModel):
     n_stocks: int
 
 
+class RollingBetaPoint(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    date: str  # ISO YYYY-MM-DD
+    market: float | None = None
+    smb: float | None = None
+    hml: float | None = None
+    rmw: float | None = None
+    cma: float | None = None
+    umd: float | None = None
+
+
 class RiskAttribution(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -65,6 +77,7 @@ class RiskAttribution(BaseModel):
     n_obs: int
     sector_exposures: list[SectorExposure]
     benchmark: str
+    rolling_betas: list[RollingBetaPoint] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +248,7 @@ def attribute_risk(
             n_obs=n_obs,
             sector_exposures=[],
             benchmark=benchmark,
+            rolling_betas=[],
         )
 
     y = port.to_numpy(dtype=float)
@@ -271,6 +285,34 @@ def attribute_risk(
 
     sector_exp = _sector_exposures_from_holdings(portfolio_holdings, metadata)
 
+    # Rolling 60-day OLS for time-varying β
+    window = 60
+    rolling_pts: list[RollingBetaPoint] = []
+    if len(port) >= window:
+        for end_idx in range(window, len(port) + 1):
+            win_returns = port.iloc[end_idx - window : end_idx]
+            win_factors = factors.loc[win_returns.index]
+            if win_factors.shape[0] < 30:
+                continue
+            try:
+                x_win = add_constant(win_factors.to_numpy(dtype=float), has_constant="add")
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    res = OLS(win_returns.to_numpy(dtype=float), x_win).fit()
+                betas = np.asarray(res.params, dtype=float)[1:]  # skip alpha
+                pt = RollingBetaPoint(
+                    date=str(win_returns.index[-1].date()),
+                    market=float(betas[0]) if len(betas) > 0 else None,
+                    smb=float(betas[1]) if len(betas) > 1 else None,
+                    hml=float(betas[2]) if len(betas) > 2 else None,
+                    rmw=float(betas[3]) if len(betas) > 3 else None,
+                    cma=float(betas[4]) if len(betas) > 4 else None,
+                    umd=float(betas[5]) if len(betas) > 5 else None,
+                )
+                rolling_pts.append(pt)
+            except Exception:
+                continue
+
     return RiskAttribution(
         style_betas=style_betas,
         alpha=alpha_annual,
@@ -280,6 +322,7 @@ def attribute_risk(
         n_obs=n_obs,
         sector_exposures=sector_exp,
         benchmark=benchmark,
+        rolling_betas=rolling_pts,
     )
 
 

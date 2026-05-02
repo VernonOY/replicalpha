@@ -223,6 +223,44 @@ def test_sector_balanced() -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_attribute_risk_rolling_betas() -> None:
+    """Rolling 60-day OLS produces N - 60 + 1 points; <60 days → empty."""
+    # Case 1: 250-day series → 191 rolling points (250 - 60 + 1)
+    n = 250
+    factors = _make_ff_factors(n)
+    port = pd.Series(factors["market"].to_numpy() * 0.8, index=factors.index)
+
+    result = attribute_risk(
+        portfolio_returns=port,
+        portfolio_holdings=_empty_holdings(),
+        metadata=_empty_metadata(),
+        ff_factors=factors,
+    )
+
+    expected = n - 60 + 1
+    assert abs(len(result.rolling_betas) - expected) <= 1, (
+        f"len(rolling_betas) = {len(result.rolling_betas)}, expected ~{expected}"
+    )
+    for pt in result.rolling_betas:
+        assert isinstance(pt.date, str)
+        assert len(pt.date) == 10  # YYYY-MM-DD
+        assert isinstance(pt.market, float)
+
+    # Case 2: < 60 days → rolling_betas == []
+    n_short = 30
+    factors_short = _make_ff_factors(n_short, seed=11)
+    port_short = pd.Series(factors_short["market"].to_numpy(), index=factors_short.index)
+
+    result_short = attribute_risk(
+        portfolio_returns=port_short,
+        portfolio_holdings=_empty_holdings(),
+        metadata=_empty_metadata(),
+        ff_factors=factors_short,
+    )
+
+    assert result_short.rolling_betas == []
+
+
 def test_build_ff_factors_smoke() -> None:
     """Load sample_market_data.csv via CSVAdapter and build FF factors.
 
