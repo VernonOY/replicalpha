@@ -386,9 +386,14 @@ function RadarChart({ axes, w = 260, h = 260, color = 'var(--accent)' }) {
         const anchor = Math.abs(px - cx) < 8 ? 'middle' : px > cx ? 'start' : 'end';
         return (
           <g key={i}>
-            <text x={px} y={py} fontSize={10} textAnchor={anchor} fill="var(--text-2)" fontFamily="var(--mono)">{a.label}</text>
-            <text x={px} y={py + 11} fontSize={9} textAnchor={anchor} fill={tColor(a.t)} fontFamily="var(--mono)">
-              β={fmtSigned(a.value, 2)} {a.t !== undefined && `· t=${fmtSigned(a.t, 2)}`}
+            <text x={px} y={py} fontSize={10} textAnchor={anchor} fill="var(--text-2)" fontFamily="var(--mono)">
+              <tspan x={px} dy="0">{a.label}</tspan>
+              {a.t !== undefined && a.t !== null && (
+                <tspan x={px} dy="11" fontSize={9} fill={tColor(a.t)}>(t={Number(a.t).toFixed(1)})</tspan>
+              )}
+            </text>
+            <text x={px} y={py + 22} fontSize={9} textAnchor={anchor} fill={tColor(a.t)} fontFamily="var(--mono)">
+              β={fmtSigned(a.value, 2)}
             </text>
           </g>
         );
@@ -463,7 +468,7 @@ function StackedBar({ segments, w = 360, h = 28 }) {
           return seg;
         })}
       </div>
-      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:4}}>
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px 12px'}}>
         {segments.map((s, i) => (
           <div key={i} style={{display:'flex', alignItems:'center', gap:6, fontSize:11}}>
             <span style={{width:9, height:9, background: palette[i % palette.length], borderRadius:2, flexShrink:0}}/>
@@ -764,6 +769,22 @@ function ICAnalysisSection({ data, status, error, onCompute }) {
     ? rollingMean(ys, 30).map((v, i) => ({ x: series[i].x, y: v }))
     : null;
   const acf = data.ic_autocorrelation || [];
+  const rho1 = (data.ic_autocorrelation && data.ic_autocorrelation[0] && data.ic_autocorrelation[0].rho) || null;
+  const halfLife = (rho1 != null && rho1 > 0 && rho1 < 1) ? Math.log(0.5) / Math.log(rho1) : null;
+
+  // skew / kurtosis of IC distribution
+  const _moments = (arr) => {
+    if (!arr || arr.length < 3) return { skew: null, kurt: null };
+    const xs = arr.map(p => typeof p === 'number' ? p : p.ic).filter(x => x != null);
+    const n = xs.length;
+    const mean = xs.reduce((a,b)=>a+b,0)/n;
+    const sd = Math.sqrt(xs.reduce((a,b)=>a+(b-mean)**2,0)/n);
+    if (sd === 0) return { skew: null, kurt: null };
+    const m3 = xs.reduce((a,b)=>a+(b-mean)**3,0)/n;
+    const m4 = xs.reduce((a,b)=>a+(b-mean)**4,0)/n;
+    return { skew: m3/sd**3, kurt: m4/sd**4 - 3 };
+  };
+  const { skew, kurt } = _moments(data.ic_series || []);
 
   return (
     <>
@@ -786,7 +807,12 @@ function ICAnalysisSection({ data, status, error, onCompute }) {
           <LineChart series={series} smoothed={smoothed} h={180} bands={[0.05, -0.05]} color="var(--accent)"/>
         </Card>
         <Card title={tA('analysis.ic_dist','IC distribution')} hint="25 bins">
-          <Histogram values={ys} bins={25} h={180} meanLine={stats.mean}/>
+          <div style={{position:'relative'}}>
+            <Histogram values={ys} bins={25} h={180} meanLine={stats.mean}/>
+            <div style={{position:'absolute', top:2, right:6, fontFamily:'var(--mono)', fontSize:10, color:'var(--text-3)'}}>
+              skew = {skew != null ? skew.toFixed(2) : '—'} · kurt = {kurt != null ? kurt.toFixed(2) : '—'}
+            </div>
+          </div>
           <div style={{marginTop:8}}>
             <MonoA size={10} color="var(--text-3)">μ = {fmtIC(stats.mean)} · σ = {fmtNum(stats.std, 4)}</MonoA>
           </div>
@@ -794,6 +820,11 @@ function ICAnalysisSection({ data, status, error, onCompute }) {
         <Card title={tA('analysis.ic_acf','IC autocorrelation')} hint={`lags ${acf.length || 0}`}>
           <BarChart data={acf.map(d => ({ label: String(d.lag), value: d.rho }))}
             valueKey="value" labelKey="label" h={180}/>
+          <div style={{fontSize:11, color:'var(--text-3)', marginTop:4}}>
+            {halfLife != null
+              ? `Half-life ≈ ${halfLife.toFixed(0)} days (rho_1 = ${rho1.toFixed(3)})`
+              : 'No clear decay structure'}
+          </div>
         </Card>
       </div>
     </>
@@ -996,6 +1027,31 @@ function DualLine({ left, right, w = 540, h = 220 }) {
         fill="none" stroke="var(--accent)" strokeWidth={1.4}/>
       <path d={right.map((p, i) => `${i===0?'M':'L'}${X(i)},${YR(p.y)}`).join(' ')}
         fill="none" stroke="#7e57c2" strokeWidth={1.4} strokeDasharray="4 2"/>
+      {/* inflection markers on cum IC: max-cumret index + last zero-cross index */}
+      {(() => {
+        if (!right || right.length < 2) return null;
+        let maxIdx = 0;
+        for (let i = 1; i < right.length; i++) if (right[i].y > right[maxIdx].y) maxIdx = i;
+        let zcIdx = -1;
+        for (let i = 1; i < right.length; i++) {
+          const a = right[i - 1].y, b = right[i].y;
+          if ((a > 0 && b <= 0) || (a < 0 && b >= 0)) zcIdx = i;
+        }
+        return (
+          <g>
+            <line x1={X(maxIdx)} x2={X(maxIdx)} y1={pad.t} y2={pad.t + ih}
+              stroke="#7e57c2" strokeOpacity={0.7} strokeWidth={0.8} strokeDasharray="3 3"/>
+            <text x={X(maxIdx) + 3} y={pad.t + 9} fontSize={8} fontFamily="var(--mono)" fill="#7e57c2">max cum IC</text>
+            {zcIdx > 0 && (
+              <g>
+                <line x1={X(zcIdx)} x2={X(zcIdx)} y1={pad.t} y2={pad.t + ih}
+                  stroke="#ef4444" strokeOpacity={0.7} strokeWidth={0.8} strokeDasharray="3 3"/>
+                <text x={X(zcIdx) + 3} y={pad.t + 19} fontSize={8} fontFamily="var(--mono)" fill="#ef4444">zero-cross (inflection)</text>
+              </g>
+            )}
+          </g>
+        );
+      })()}
       <text x={pad.l - 4} y={pad.t + 4} fontSize={9} fontFamily="var(--mono)" fill="var(--accent)" textAnchor="end">{lHi.toFixed(3)}</text>
       <text x={pad.l - 4} y={pad.t + ih} fontSize={9} fontFamily="var(--mono)" fill="var(--accent)" textAnchor="end">{lLo.toFixed(3)}</text>
       <text x={pad.l + iw + 4} y={pad.t + 4} fontSize={9} fontFamily="var(--mono)" fill="#7e57c2">{rHi.toFixed(2)}</text>
@@ -1106,6 +1162,30 @@ function RollingBetaChart({ rolling, w = 1100, h = 180 }) {
           </g>
         );
       })}
+      {/* y-axis tick labels (.toFixed(2)) */}
+      <text x={pad.l - 4} y={pad.t + 4} fontSize={9} fontFamily="var(--mono)"
+        fill="var(--text-3)" textAnchor="end">{hi.toFixed(2)}</text>
+      <text x={pad.l - 4} y={pad.t + ih / 2 + 3} fontSize={9} fontFamily="var(--mono)"
+        fill="var(--text-3)" textAnchor="end">{((hi + lo) / 2).toFixed(2)}</text>
+      <text x={pad.l - 4} y={pad.t + ih} fontSize={9} fontFamily="var(--mono)"
+        fill="var(--text-3)" textAnchor="end">{lo.toFixed(2)}</text>
+      {/* x-axis date tick labels (Mon 'YY) */}
+      {(() => {
+        if (rolling.length === 0) return null;
+        const fmt = (date) => {
+          try {
+            return new Date(date).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+          } catch (_e) { return String(date); }
+        };
+        const ticks = [0, Math.floor((rolling.length - 1) / 2), rolling.length - 1];
+        const anchors = ['start', 'middle', 'end'];
+        return ticks.map((idx, ti) => (
+          <text key={`xt${ti}`} x={X(idx)} y={pad.t + ih + 14} fontSize={9}
+            fontFamily="var(--mono)" fill="var(--text-3)" textAnchor={anchors[ti]}>
+            {rolling[idx] && rolling[idx].date ? fmt(rolling[idx].date) : ''}
+          </text>
+        ));
+      })()}
     </svg>
   );
 }
@@ -1188,6 +1268,41 @@ function CapacityChart({ curves, w = 540, h = 140 }) {
           </g>
         );
       })}
+      {/* Capacity wall: first AUM where Sharpe < 1.0 on mid-slippage curve (~10bp) */}
+      {(() => {
+        // pick mid-slippage curve: prefer slippage_bp == 10, else median of curves
+        let mid = curves.find(c => Number(c.slippage_bp) === 10);
+        if (!mid) {
+          const sorted = [...curves].sort((a, b) => Number(a.slippage_bp || 0) - Number(b.slippage_bp || 0));
+          mid = sorted[Math.floor(sorted.length / 2)];
+        }
+        const pts = (mid && mid.points) || [];
+        if (pts.length === 0) return null;
+        const sortedPts = [...pts].sort((a, b) => Number(a.aum_m) - Number(b.aum_m));
+        const wallPt = sortedPts.find(p => Number(p.sharpe) < 1.0);
+        if (!wallPt) {
+          return (
+            <text x={pad.l + iw / 2} y={pad.t + 12} fontSize={9}
+              fontFamily="var(--mono)" fill="var(--text-3)" textAnchor="middle">
+              {/* capacityWall: none */}
+              No capacity wall in tested range
+            </text>
+          );
+        }
+        const wallLx = Math.log10(Math.max(0.01, wallPt.aum_m));
+        const wx = X(wallLx);
+        return (
+          <g>
+            {/* capacityWall marker */}
+            <line x1={wx} x2={wx} y1={pad.t} y2={pad.t + ih}
+              stroke="#ef4444" strokeDasharray="3 3" strokeWidth={1}/>
+            <text x={wx + 4} y={pad.t + 10} fontSize={9}
+              fontFamily="var(--mono)" fill="#ef4444">
+              Capacity ~ ${Math.round(wallPt.aum_m)}M
+            </text>
+          </g>
+        );
+      })()}
       <text x={pad.l} y={h - 4} fontSize={9} fontFamily="var(--mono)" fill="var(--text-3)">
         AUM ${Math.round(Math.pow(10, xLo))}M
       </text>

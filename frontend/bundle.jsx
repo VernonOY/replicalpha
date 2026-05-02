@@ -2886,8 +2886,17 @@ function Landing({ onStart }) {
           <Mono size={16} color="#eab308">weak</Mono>, or <Mono size={16} color="#ef4444">sign-flipped</Mono>.
         </p>
 
-        {/* AI chat console */}
-        <AIChatConsole onStart={onStart}/>
+        {/* AI chat console — v0.4 wires the live SSE AgentChat here when loaded */}
+        {window.AgentChat
+          ? (
+            <div style={{
+              border:'1px solid var(--border)', borderRadius:8, overflow:'hidden',
+              background:'var(--surface-1)', marginBottom:48, height:420,
+            }}>
+              <window.AgentChat runId={null} fullPanel={true} height={420}/>
+            </div>
+          )
+          : <AIChatConsole onStart={onStart}/>}
 
         {/* Sample timeline preview */}
         <div style={{
@@ -3666,7 +3675,13 @@ Object.assign(window, { Landing, Factors, Library, Upload, Compare });
 // Single source of truth for the backend base URL — set window.__API_BASE before
 // the bundle loads to override the default localhost target.
 
-const API_BASE = window.__API_BASE || 'http://localhost:8000';
+// When served by FastAPI (same-origin) leave base empty so URLs are relative;
+// when opened via file://, default to the local dev server.
+const API_BASE = window.__API_BASE !== undefined
+  ? window.__API_BASE
+  : (location.protocol === 'http:' || location.protocol === 'https:')
+    ? ''
+    : 'http://localhost:8000';
 
 async function _json(path, init) {
   const res = await fetch(API_BASE + path, init);
@@ -5060,7 +5075,9 @@ window.AnalysisPage = AnalysisPage;
 async function streamChat({ runId, sessionId, message, model, costCap, history,
                             onEvent, onDone, onError, signal }) {
   try {
-    const base = (window.api && window.api.base) || 'http://localhost:8000';
+    const base = (window.api && typeof window.api.base === 'string')
+      ? window.api.base
+      : (location.protocol === 'http:' || location.protocol === 'https:' ? '' : 'http://localhost:8000');
     const res = await fetch(base + '/agent/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
